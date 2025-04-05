@@ -33,5 +33,5 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster medusa-backend \
-            --service medusa-service \
+            --service medusa-backend \
             --force-new-deployment
