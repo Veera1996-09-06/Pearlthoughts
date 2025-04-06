@@ -13,6 +13,9 @@ COPY . .
 # Build the project if using TypeScript
 RUN if [ -f tsconfig.json ]; then npm run build; fi
 
+# Create empty dist directory if it doesn't exist
+RUN mkdir -p dist
+
 # Stage 2: Runtime
 FROM node:20-alpine
 
@@ -29,14 +32,14 @@ RUN addgroup -g 1001 -S medusa && \
 COPY --from=builder --chown=medusa:medusa /usr/src/app/node_modules ./node_modules
 COPY --from=builder --chown=medusa:medusa /usr/src/app/package*.json ./
 
-# Copy source files (works for both JS and TS projects)
+# Copy source files
 COPY --from=builder --chown=medusa:medusa /usr/src/app/src ./src
 
-# Try to copy dist (won't fail if missing)
-COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist || true
+# Copy dist directory (empty if not built)
+COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist
 
-# Copy config file (won't fail if missing)
-COPY --from=builder --chown=medusa:medusa /usr/src/app/medusa-config* ./ || true
+# Copy config file if exists (using find + xargs pattern)
+RUN find /usr/src/app -maxdepth 1 -name 'medusa-config*' -exec cp {} /app \; || true
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
