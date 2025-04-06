@@ -1,29 +1,36 @@
-"containerDefinitions": [
-  {
-    "name": "medusa-container",
-    "image": "veera1016/medusa-backend:latest",
-    "cpu": 0,
-    "portMappings": [
-      {
-        "containerPort": 9000,
-        "hostPort": 9000,
-        "protocol": "tcp"
-      }
-    ],
-    "essential": true,
-    "environment": [
-      {
-        "name": "DATABASE_URL",
-        "value": "postgres://medusad:password@medusa-db.ca9ga0oq24mx.us-east-1.rds.amazonaws.com:5432/medusadb"
-      }
-    ],
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "/ecs/medusa-backend",
-        "awslogs-region": "us-east-1",
-        "awslogs-stream-prefix": "ecs"
+{
+  "family": "medusa-backend",
+  "networkMode": "awsvpc",
+  "cpu": "512",
+  "memory": "1024",
+  "requiresCompatibilities": ["FARGATE"],
+  "executionRoleArn": "arn:aws:iam::266735799204:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "medusa-container",
+      "image": "veera1016/medusa-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 9000,
+          "hostPort": 9000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "DATABASE_URL",
+          "value": "postgres://medusad:password@medusa-db.ca9ga0oq24mx.us-east-1.rds.amazonaws.com:5432/medusadb"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/medusa-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
       }
     }
-  }
-]
+  ]
+}
