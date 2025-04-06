@@ -1,56 +1,37 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
+# Use official Node.js 18 image
+FROM node:18
 
-WORKDIR /usr/src/app
-
-# Install dependencies (cached layer)
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-
-# Copy all files needed for build
-COPY . .
-
-# Build the project if using TypeScript
-RUN if [ -f tsconfig.json ]; then npm run build; fi
-
-# Create empty dist directory if it doesn't exist
-RUN mkdir -p dist
-
-# Stage 2: Runtime
-FROM node:20-alpine
-
+# Set working directory
 WORKDIR /app
 
-# Install production dependencies and runtime tools
-RUN apk add --no-cache curl
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y python3 build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN addgroup -g 1001 -S medusa && \
-    adduser -u 1001 -S medusa -G medusa
+# Install Medusa CLI globally
+RUN npm install -g @medusajs/medusa-cli
 
-# Copy from builder
-COPY --from=builder --chown=medusa:medusa /usr/src/app/node_modules ./node_modules
-COPY --from=builder --chown=medusa:medusa /usr/src/app/package*.json ./
+# Copy package files
+COPY package*.json ./
 
-# Copy source files
-COPY --from=builder --chown=medusa:medusa /usr/src/app/src ./src
+# Install app dependencies
+RUN npm install
 
-# Copy dist directory (empty if not built)
-COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist
+# Copy all files
+COPY . .
 
-# Copy config file if exists (using find + xargs pattern)
-RUN find /usr/src/app -maxdepth 1 -name 'medusa-config*' -exec cp {} /app \; || true
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:9000/health || exit 1
-
-# Runtime configuration
+# Set environment variables (override these in ECS task definition)
 ENV NODE_ENV=production
 ENV PORT=9000
+ENV DATABASE_URL=postgres://medusa:medusa_pass@localhost:5432/medusa_db
+ENV REDIS_URL=redis://localhost:6379
+
+# Build the application (if needed)
+# RUN npm run build
+
+# Expose the Medusa port
 EXPOSE 9000
 
-USER medusa
-
-# Smart entrypoint that works for both JS and TS projects
-CMD ["sh", "-c", "if [ -f 'dist/index.js' ]; then node dist/index.js; else node src/index.js; fi"]
+# Run migrations and start the server
+CMD ["sh", "-c", "npx medusa migrations run && medusa start"]
