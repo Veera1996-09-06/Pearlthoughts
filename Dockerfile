@@ -10,7 +10,7 @@ RUN npm ci --omit=dev
 # Copy all files needed for build
 COPY . .
 
-# Build the project (if using TypeScript)
+# Build the project if using TypeScript
 RUN if [ -f tsconfig.json ]; then npm run build; fi
 
 # Stage 2: Runtime
@@ -29,11 +29,13 @@ RUN addgroup -g 1001 -S medusa && \
 COPY --from=builder --chown=medusa:medusa /usr/src/app/node_modules ./node_modules
 COPY --from=builder --chown=medusa:medusa /usr/src/app/package*.json ./
 
-# Copy either dist or src files
-COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist
+# Copy source files (works for both JS and TS projects)
 COPY --from=builder --chown=medusa:medusa /usr/src/app/src ./src
 
-# Copy config file (if exists, won't fail if missing)
+# Try to copy dist (won't fail if missing)
+COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist || true
+
+# Copy config file (won't fail if missing)
 COPY --from=builder --chown=medusa:medusa /usr/src/app/medusa-config* ./ || true
 
 # Health check
@@ -47,5 +49,5 @@ EXPOSE 9000
 
 USER medusa
 
-# Entrypoint that checks for built files
+# Smart entrypoint that works for both JS and TS projects
 CMD ["sh", "-c", "if [ -f 'dist/index.js' ]; then node dist/index.js; else node src/index.js; fi"]
