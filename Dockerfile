@@ -7,7 +7,7 @@ WORKDIR /usr/src/app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Copy source files
+# Copy all files needed for build
 COPY . .
 
 # Build the project (if using TypeScript)
@@ -25,12 +25,26 @@ RUN apk add --no-cache curl
 RUN addgroup -g 1001 -S medusa && \
     adduser -u 1001 -S medusa -G medusa
 
-# Copy from builder
+# Copy from builder (with existence checks)
 COPY --from=builder --chown=medusa:medusa /usr/src/app/node_modules ./node_modules
 COPY --from=builder --chown=medusa:medusa /usr/src/app/package*.json ./
-COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist
-COPY --from=builder --chown=medusa:medusa /usr/src/app/src ./src
-COPY --from=builder --chown=medusa:medusa /usr/src/app/medusa-config.js ./
+
+# Conditional copy for build output
+RUN if [ -d "/usr/src/app/dist" ]; then \
+      COPY --from=builder --chown=medusa:medusa /usr/src/app/dist ./dist; \
+    fi
+
+# Copy source files (if not using dist)
+RUN if [ ! -d "/usr/src/app/dist" ]; then \
+      COPY --from=builder --chown=medusa:medusa /usr/src/app/src ./src; \
+    fi
+
+# Conditionally copy config files
+RUN if [ -f "/usr/src/app/medusa-config.js" ]; then \
+      COPY --from=builder --chown=medusa:medusa /usr/src/app/medusa-config.js ./; \
+    elif [ -f "/usr/src/app/medusa-config.ts" ]; then \
+      COPY --from=builder --chown=medusa:medusa /usr/src/app/medusa-config.ts ./; \
+    fi
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
@@ -43,4 +57,4 @@ EXPOSE 9000
 
 USER medusa
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/index.js"]  # or "src/index.js" if not using dist
