@@ -29,9 +29,17 @@ jobs:
       - name: Push to Docker Hub
         run: docker push veera1016/medusa-backend:latest
 
-      - name: Update ECS Service
-        run: |
-          aws ecs update-service \
-            --cluster medusa-backend \
-            --service medusa-backend \
-            --force-new-deployment
+      - name: Render new task definition with logs
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs-task-definition.json
+          container-name: medusa-container
+          image: veera1016/medusa-backend:latest
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          service: medusa-backend
+          cluster: medusa-backend
+          task-definition: ${{ steps.render-task-def.outputs.task-definition-arn }}
